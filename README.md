@@ -1,6 +1,7 @@
 # COVID-GT
 
 Información diaria de los casos de COVID en Guatemala.
+El sitio se puede visualizar por medio de github pages en https://mau628.github.io/COVID-GT/Index.html
 
 ## Origen
 
