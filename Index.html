@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COVID-GT</title>
+</head>
+
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"
+        integrity="sha512-s+xg36jbIujB2S2VKfpGmlC3T5V2TF3lY48DX7u2r9XzGzgPsa6wTpOQA7J9iffvdeBN0q9tKzRxVxw1JviZPg=="
+        crossorigin="anonymous"></script>
+    <div style="height: 768px;"><canvas id="canvas"></canvas></div>
+
+    <script>
+        function httpGetAsync(theUrl, callback) {
+            var xmlHttp = new XMLHttpRequest();
+            xmlHttp.onreadystatechange = function () {
+                if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+                    callback(xmlHttp.responseText);
+            }
+            xmlHttp.open("GET", theUrl, true); // true for asynchronous 
+            xmlHttp.send(null);
+        }
+
+        function callback(data) {
+            let sourceData = JSON.parse(data);
+            var analyticsData = [];
+            let prevItem = {};
+            sourceData.forEach(item => {
+                let cases = {
+                    confirmed: item.Confirmed,
+                    deaths: item.Deaths,
+                    recovered: item.Recovered,
+                    active: item.Active,
+                    date: item.Date
+                };
+                if (!!prevItem) {
+                    cases.confirmed = item.Confirmed - prevItem.Confirmed;
+                    cases.deaths = item.Deaths - prevItem.Deaths;
+                    cases.recovered = item.Recovered - prevItem.Recovered;
+                }
+                prevItem = item
+                analyticsData.push(cases);
+            });
+
+            var labels = analyticsData.map(function (e) {
+                return new Date(e.date).toLocaleDateString("es-GT");
+            });
+            var dataConfirmed = analyticsData.map(function (e) {
+                return e.confirmed;
+            });
+            var dataDeaths = analyticsData.map(function (e) {
+                return e.deaths;
+            });
+            var dataRecovered = analyticsData.map(function (e) {
+                return e.recovered;
+            });
+
+
+            var ctx = canvas.getContext('2d');
+            var config = {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Confirmed',
+                        data: dataConfirmed,
+                        backgroundColor: 'rgba(214, 193, 36, 0.3)',
+                        borderColor: 'rgba(214, 193, 36, 1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Deaths',
+                        data: dataDeaths,
+                        backgroundColor: 'rgba(221, 54, 54, 0.3)',
+                        borderColor: 'rgba(221, 54, 54, 1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Recovered',
+                        data: dataRecovered,
+                        backgroundColor: 'rgba(59, 183, 31, 0.3)',
+                        borderColor: 'rgba(59, 183, 31, 1)',
+                        borderWidth: 2
+                    },
+                    ]
+                },
+                options: {
+                    scales: {
+                        yAxes: [{
+                            type: 'logarithmic',
+                            ticks: {
+                                min: 0,
+                                max: 20000,
+                                callback: function (value, index, values) {
+                                    if (value === 20000) return "20K";
+                                    if (value === 15000) return "15K";
+                                    if (value === 10000) return "10K";
+                                    if (value === 5000) return "5K";
+                                    if (value === 1000) return "1K";
+                                    if (value === 100) return "100";
+                                    if (value === 10) return "10";
+                                    if (value === 0) return "0";
+                                    return null;
+                                }
+                            }
+                        }]
+                    }
+                }
+            };
+
+            var chart = new Chart(ctx, config);
+        }
+
+        httpGetAsync("https://api.covid19api.com/total/country/guatemala", callback);
+    </script>
+
+</body>
+
+</html>
