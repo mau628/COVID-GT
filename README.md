@@ -9,4 +9,4 @@ La información es obtenida desde [covid19api](https://covid19api.com/).
 
 ## Gráficos
 
-Los gráficos son mostrados utiliando [Chart.js](https://www.chartjs.org/).
+Los gráficos son mostrados utilizando [Chart.js](https://www.chartjs.org/).
