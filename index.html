@@ -5,15 +5,91 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>COVID-GT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
 </head>
 
 <body>
+    <h3>Casos diarios para COVID-19 en Guatemala</h3>
+    <label for="inicio">Desde</label>
+    <input type="date" name="inicio" id="inicio" onchange="update()">
+    <br>
+    <label for="fin">Hasta</label>
+    <input type="date" name="fin" id="fin" onchange="update()">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"
         integrity="sha512-s+xg36jbIujB2S2VKfpGmlC3T5V2TF3lY48DX7u2r9XzGzgPsa6wTpOQA7J9iffvdeBN0q9tKzRxVxw1JviZPg=="
         crossorigin="anonymous"></script>
     <div style="height: 768px;"><canvas id="canvas"></canvas></div>
 
     <script>
+        var chart;
+        var dataset;
+        function update() {
+            var desdeString = document.getElementById("inicio").value;
+            var hastaString = document.getElementById("fin").value;
+
+            if (desdeString.length === 0 || hastaString.length === 0)
+                return;
+
+            var dateDesde = new Date(desdeString);
+            dateDesde.setDate(dateDesde.getDate());
+            var desde = dateDesde.toISOString();
+
+            var dateHasta = new Date(hastaString);
+            dateHasta.setDate(dateHasta.getDate() + 2);
+            var hasta = dateHasta.toISOString();
+
+            var analyticsData = [];
+            var prevItem = {};
+            dataset.forEach(item => {
+                if (!!desde && item.Date < desde)
+                    return;
+                if (!!hasta && item.Date > hasta)
+                    return;
+
+                var cases = {
+                    confirmed: item.Confirmed,
+                    deaths: item.Deaths,
+                    recovered: item.Recovered,
+                    active: item.Active,
+                    date: item.Date
+                };
+                if (!!prevItem) {
+                    cases.confirmed = item.Confirmed - prevItem.Confirmed;
+                    cases.deaths = item.Deaths - prevItem.Deaths;
+                    cases.recovered = item.Recovered - prevItem.Recovered;
+                }
+                prevItem = item
+                analyticsData.push(cases);
+            });
+
+            var labels = analyticsData.map(function (e) {
+                return new Date(e.date).toLocaleDateString("es-GT");
+            });
+            var dataConfirmed = analyticsData.map(function (e) {
+                return e.confirmed;
+            });
+            var dataDeaths = analyticsData.map(function (e) {
+                return e.deaths;
+            });
+            var dataRecovered = analyticsData.map(function (e) {
+                return e.recovered;
+            });
+
+            // 0: Confirfmados
+            // 1: Fallecidos
+            // 2: Recuperados
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = dataConfirmed;
+            chart.data.datasets[1].data = dataDeaths;
+            chart.data.datasets[2].data = dataRecovered;
+            chart.update();
+        }
+
         function httpGetAsync(theUrl, callback) {
             var xmlHttp = new XMLHttpRequest();
             xmlHttp.onreadystatechange = function () {
@@ -25,11 +101,11 @@
         }
 
         function callback(data) {
-            let sourceData = JSON.parse(data);
+            dataset = JSON.parse(data);
             var analyticsData = [];
-            let prevItem = {};
-            sourceData.forEach(item => {
-                let cases = {
+            var prevItem = {};
+            dataset.forEach(item => {
+                var cases = {
                     confirmed: item.Confirmed,
                     deaths: item.Deaths,
                     recovered: item.Recovered,
@@ -107,11 +183,12 @@
                                 }
                             }
                         }]
-                    }
+                    },
+                    responsive: true,
                 }
             };
 
-            var chart = new Chart(ctx, config);
+            chart = new Chart(ctx, config);
         }
 
         httpGetAsync("https://api.covid19api.com/total/country/guatemala", callback);
