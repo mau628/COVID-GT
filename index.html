@@ -10,84 +10,77 @@
         * {
             font-family: 'Roboto', sans-serif;
         }
+
+        #covid-chart {
+            min-height: 700px;
+        }
+
+        table.tbl {
+            border: 1px solid #000;
+            border-collapse: separate;
+            border-radius: 50px;
+            border-spacing: 0;
+            padding: 10px;
+            margin: 5px;
+        }
     </style>
 </head>
 
 <body>
     <h3>Casos diarios para COVID-19 en Guatemala</h3>
-    <label for="inicio">Desde</label>
-    <input type="date" name="inicio" id="inicio" onchange="update()">
-    <br>
-    <label for="fin">Hasta</label>
-    <input type="date" name="fin" id="fin" onchange="update()">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"
-        integrity="sha512-s+xg36jbIujB2S2VKfpGmlC3T5V2TF3lY48DX7u2r9XzGzgPsa6wTpOQA7J9iffvdeBN0q9tKzRxVxw1JviZPg=="
-        crossorigin="anonymous"></script>
-    <div style="height: 768px;"><canvas id="canvas"></canvas></div>
+    <table class="tbl">
+        <tbody>
+            <tr>
+                <td>
+                    <label for="desde">Desde</label>
+                    <input type="date" name="desde" id="desde" onchange="recalcular()">
+                    <label for="hasta">Hasta</label>
+                    <input type="date" name="hasta" id="hasta" onchange="recalcular()">
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="tbl">
+        <tbody>
+            <tr>
+                <td>
+                    <input type="radio" id="nuevos" name="casos" value="1" checked="checked" onchange="recalcular()">
+                    <label for="nuevos">Diarios</label>
+                    <input type="radio" id="acumulados" name="casos" value="0" onchange="recalcular()">
+                    <label for="acumulados">Acumulados</label>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="tbl">
+        <tbody>
+            <tr>
+                <td>
+                    <input type="checkbox" id="chk_nuevos" name="Nuevos" value="1" onchange="recalcular()" checked>
+                    <label for="chk_nuevos">Nuevos</label>
+                    <input type="checkbox" id="chk_fallecidos" name="Fallecidos" value="2" onchange="recalcular()"
+                        checked>
+                    <label for="chk_fallecidos">Fallecidos</label>
+                    <input type="checkbox" id="chk_recuperados" name="Recuperados" value="3" onchange="recalcular()"
+                        checked>
+                    <label for="chk_recuperados">Recuperados</label>
+                    <input type="checkbox" id="chk_activos" name="Activos" value="4" onchange="recalcular()" checked>
+                    <label for="chk_activos">Activos</label>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <div id="covid-chart"></div>
 
     <script>
         var chart;
+        var data;
         var dataset;
-        function update() {
-            var desdeString = document.getElementById("inicio").value;
-            var hastaString = document.getElementById("fin").value;
 
-            if (desdeString.length === 0 || hastaString.length === 0)
-                return;
-
-            var dateDesde = new Date(desdeString);
-            dateDesde.setDate(dateDesde.getDate());
-            var desde = dateDesde.toISOString();
-
-            var dateHasta = new Date(hastaString);
-            dateHasta.setDate(dateHasta.getDate() + 2);
-            var hasta = dateHasta.toISOString();
-
-            var analyticsData = [];
-            var prevItem = {};
-            dataset.forEach(item => {
-                if (!!desde && item.Date < desde)
-                    return;
-                if (!!hasta && item.Date > hasta)
-                    return;
-
-                var cases = {
-                    confirmed: item.Confirmed,
-                    deaths: item.Deaths,
-                    recovered: item.Recovered,
-                    active: item.Active,
-                    date: item.Date
-                };
-                if (!!prevItem) {
-                    cases.confirmed = item.Confirmed - prevItem.Confirmed;
-                    cases.deaths = item.Deaths - prevItem.Deaths;
-                    cases.recovered = item.Recovered - prevItem.Recovered;
-                }
-                prevItem = item
-                analyticsData.push(cases);
-            });
-
-            var labels = analyticsData.map(function (e) {
-                return new Date(e.date).toLocaleDateString("es-GT");
-            });
-            var dataConfirmed = analyticsData.map(function (e) {
-                return e.confirmed;
-            });
-            var dataDeaths = analyticsData.map(function (e) {
-                return e.deaths;
-            });
-            var dataRecovered = analyticsData.map(function (e) {
-                return e.recovered;
-            });
-
-            // 0: Confirfmados
-            // 1: Fallecidos
-            // 2: Recuperados
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = dataConfirmed;
-            chart.data.datasets[1].data = dataDeaths;
-            chart.data.datasets[2].data = dataRecovered;
-            chart.update();
+        function init() {
+            chart = new google.charts.Line(document.getElementById('covid-chart'));
+            httpGetAsync("https://api.covid19api.com/total/country/guatemala", callback);
         }
 
         function httpGetAsync(theUrl, callback) {
@@ -99,99 +92,73 @@
             xmlHttp.open("GET", theUrl, true); // true for asynchronous 
             xmlHttp.send(null);
         }
-
-        function callback(data) {
-            dataset = JSON.parse(data);
-            var analyticsData = [];
-            var prevItem = {};
-            dataset.forEach(item => {
-                var cases = {
-                    confirmed: item.Confirmed,
-                    deaths: item.Deaths,
-                    recovered: item.Recovered,
-                    active: item.Active,
-                    date: item.Date
-                };
-                if (!!prevItem) {
-                    cases.confirmed = item.Confirmed - prevItem.Confirmed;
-                    cases.deaths = item.Deaths - prevItem.Deaths;
-                    cases.recovered = item.Recovered - prevItem.Recovered;
-                }
-                prevItem = item
-                analyticsData.push(cases);
-            });
-
-            var labels = analyticsData.map(function (e) {
-                return new Date(e.date).toLocaleDateString("es-GT");
-            });
-            var dataConfirmed = analyticsData.map(function (e) {
-                return e.confirmed;
-            });
-            var dataDeaths = analyticsData.map(function (e) {
-                return e.deaths;
-            });
-            var dataRecovered = analyticsData.map(function (e) {
-                return e.recovered;
-            });
-
-
-            var ctx = canvas.getContext('2d');
-            var config = {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Confirmados',
-                        data: dataConfirmed,
-                        backgroundColor: 'rgba(214, 193, 36, 0.3)',
-                        borderColor: 'rgba(214, 193, 36, 1)',
-                        borderWidth: 2
-                    },
-                    {
-                        label: 'Fallecidos',
-                        data: dataDeaths,
-                        backgroundColor: 'rgba(221, 54, 54, 0.3)',
-                        borderColor: 'rgba(221, 54, 54, 1)',
-                        borderWidth: 2
-                    },
-                    {
-                        label: 'Recuperados',
-                        data: dataRecovered,
-                        backgroundColor: 'rgba(59, 183, 31, 0.3)',
-                        borderColor: 'rgba(59, 183, 31, 1)',
-                        borderWidth: 2
-                    },
-                    ]
-                },
-                options: {
-                    scales: {
-                        yAxes: [{
-                            type: 'logarithmic',
-                            ticks: {
-                                min: 0,
-                                max: 20000,
-                                callback: function (value, index, values) {
-                                    if (value === 20000) return "20K";
-                                    if (value === 15000) return "15K";
-                                    if (value === 10000) return "10K";
-                                    if (value === 5000) return "5K";
-                                    if (value === 1000) return "1K";
-                                    if (value === 100) return "100";
-                                    if (value === 10) return "10";
-                                    if (value === 0) return "0";
-                                    return null;
-                                }
-                            }
-                        }]
-                    },
-                    responsive: true,
-                }
-            };
-
-            chart = new Chart(ctx, config);
+        function callback(responseData) {
+            dataset = JSON.parse(responseData);
+            recalcular();
         }
 
-        httpGetAsync("https://api.covid19api.com/total/country/guatemala", callback);
+        function recalcular() {
+            var soloNuevos = !!+document.querySelector('input[name="casos"]:checked').value;
+
+            var columnas = {
+                nuevos: document.getElementById('chk_nuevos').checked,
+                fallecidos: document.getElementById('chk_fallecidos').checked,
+                recuperados: document.getElementById('chk_recuperados').checked,
+                activos: document.getElementById('chk_activos').checked
+            }
+            var offset = new Date().getTimezoneOffset();
+            var desde = document.getElementById('desde').valueAsDate;
+            var hasta = document.getElementById('hasta').valueAsDate;
+            if (!!desde) desde.setMinutes(desde.getMinutes() + offset);
+            if (!!hasta) hasta.setMinutes(hasta.getMinutes() + offset);
+
+            data = new google.visualization.DataTable();
+            data.addColumn('string', 'Fecha');
+            if (columnas.nuevos) data.addColumn('number', 'Nuevos');
+            if (columnas.fallecidos) data.addColumn('number', 'Fallecidos');
+            if (columnas.recuperados) data.addColumn('number', 'Recuperados');
+            if (columnas.activos) data.addColumn('number', 'Activos');
+            chart.clearChart();
+
+            var prevItem = {};
+            dataset.forEach(item => {
+                var casos = {
+                    nuevos: item.Confirmed,
+                    fallecidos: item.Deaths,
+                    recuperados: item.Recovered,
+                    activos: item.Active,
+                    fecha: new Date(item.Date)
+                };
+                casos.fecha.setMinutes(casos.fecha.getMinutes() + offset);
+
+                if (soloNuevos) {
+                    if (!!prevItem) {
+                        casos.nuevos = item.Confirmed - prevItem.Confirmed;
+                        casos.fallecidos = item.Deaths - prevItem.Deaths;
+                        casos.recuperados = item.Recovered - prevItem.Recovered;
+                    }
+                    prevItem = item
+                }
+
+                if (!!desde && !!hasta && (casos.fecha < desde || casos.fecha > hasta)) return
+
+                var row = [casos.fecha.toLocaleDateString()]
+                if (columnas.nuevos) row.push(casos.nuevos)
+                if (columnas.fallecidos) row.push(casos.fallecidos)
+                if (columnas.recuperados) row.push(casos.recuperados)
+                if (columnas.activos) row.push(casos.activos)
+                data.addRow(row);
+            });
+            var options = {
+                curveType: 'function',
+                vAxis: { viewWindow: { min: 0 } },
+            };
+
+            chart.draw(data, google.charts.Line.convertOptions(options));
+        }
+
+        google.charts.load('current', { 'packages': ['line'], 'language': 'es' });
+        google.charts.setOnLoadCallback(init);
     </script>
 
 </body>
