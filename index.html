@@ -23,6 +23,48 @@
             padding: 10px;
             margin: 5px;
         }
+
+        #lds-ring {
+            display: inline-block;
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+
+        #lds-ring div {
+            box-sizing: border-box;
+            display: block;
+            position: absolute;
+            width: 64px;
+            height: 64px;
+            margin: 8px;
+            border: 8px solid #afdff0;
+            border-radius: 50%;
+            animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+            border-color: #afdff0 transparent transparent transparent;
+        }
+
+        #lds-ring div:nth-child(1) {
+            animation-delay: -0.45s;
+        }
+
+        #lds-ring div:nth-child(2) {
+            animation-delay: -0.3s;
+        }
+
+        #lds-ring div:nth-child(3) {
+            animation-delay: -0.15s;
+        }
+
+        @keyframes lds-ring {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
@@ -33,20 +75,23 @@
             <tr>
                 <td>
                     <label for="desde">Desde</label>
-                    <input type="date" name="desde" id="desde" onchange="recalcular()">
+                    <input type="date" name="desde" id="desde" onchange="callbackRecalcular()">
                     <label for="hasta">Hasta</label>
-                    <input type="date" name="hasta" id="hasta" onchange="recalcular()">
+                    <input type="date" name="hasta" id="hasta" onchange="callbackRecalcular()">
                 </td>
             </tr>
         </tbody>
     </table>
+    <p><i>A partir del 20 de julio de 2020 se mejor&oacute; el registro de casos, por lo cual los valores de fechas
+            anteriores pueden ser incorrectos.</i></p>
     <table class="tbl">
         <tbody>
             <tr>
                 <td>
-                    <input type="radio" id="nuevos" name="casos" value="1" checked="checked" onchange="recalcular()">
+                    <input type="radio" id="nuevos" name="casos" value="1" checked="checked"
+                        onchange="callbackRecalcular()">
                     <label for="nuevos">Diarios</label>
-                    <input type="radio" id="acumulados" name="casos" value="0" onchange="recalcular()">
+                    <input type="radio" id="acumulados" name="casos" value="0" onchange="callbackRecalcular()">
                     <label for="acumulados">Acumulados</label>
                 </td>
             </tr>
@@ -56,20 +101,28 @@
         <tbody>
             <tr>
                 <td>
-                    <input type="checkbox" id="chk_nuevos" name="Nuevos" value="1" onchange="recalcular()" checked>
+                    <input type="checkbox" id="chk_nuevos" name="Nuevos" value="1" onchange="callbackRecalcular()"
+                        checked>
                     <label for="chk_nuevos">Nuevos</label>
-                    <input type="checkbox" id="chk_fallecidos" name="Fallecidos" value="2" onchange="recalcular()"
-                        checked>
+                    <input type="checkbox" id="chk_fallecidos" name="Fallecidos" value="2"
+                        onchange="callbackRecalcular()" checked>
                     <label for="chk_fallecidos">Fallecidos</label>
-                    <input type="checkbox" id="chk_recuperados" name="Recuperados" value="3" onchange="recalcular()"
-                        checked>
+                    <input type="checkbox" id="chk_recuperados" name="Recuperados" value="3"
+                        onchange="callbackRecalcular()" checked>
                     <label for="chk_recuperados">Recuperados</label>
-                    <input type="checkbox" id="chk_activos" name="Activos" value="4" onchange="recalcular()" checked>
+                    <input type="checkbox" id="chk_activos" name="Activos" value="4" onchange="callbackRecalcular()"
+                        checked>
                     <label for="chk_activos">Activos</label>
                 </td>
             </tr>
         </tbody>
     </table>
+    <div id="lds-ring">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+    </div>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <div id="covid-chart"></div>
     <p>Datos obtenidos desde <a href="https://covid19api.com" , target="_blank">covid19api.com</a></p>
@@ -77,28 +130,54 @@
     <script>
         var chart;
         var data;
-        var dataset;
-
+        var local = JSON.parse(localStorage.getItem("meta"));
+        Date.prototype.addDays = function (days) {
+            var date = new Date(this.valueOf());
+            date.setDate(date.getDate() + days);
+            return date;
+        }
         function init() {
+            if (local == null)
+                local = {};
+            else
+                local.fecha = new Date(local.fecha);
+            var fechaDesde = new Date().addDays(-61);
+            var fechaHasta = new Date();
+            document.getElementById('desde').value = fechaDesde.toISOString().substring(0, 10);
+            document.getElementById('hasta').value = fechaHasta.toISOString().substring(0, 10);
+
             chart = new google.charts.Line(document.getElementById('covid-chart'));
-            httpGetAsync("https://api.covid19api.com/total/country/guatemala", callback);
+            httpGetAsync("https://api.covid19api.com/total/country/guatemala", callbackRecalcular);
         }
 
         function httpGetAsync(theUrl, callback) {
+            if (existenDatos()) {
+                callbackRecalcular();
+                return;
+            }
             var xmlHttp = new XMLHttpRequest();
             xmlHttp.onreadystatechange = function () {
-                if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-                    callback(xmlHttp.responseText);
+                if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+                    local.data = JSON.parse(xmlHttp.responseText)
+                    callbackRecalcular();
+                }
             }
             xmlHttp.open("GET", theUrl, true); // true for asynchronous 
             xmlHttp.send(null);
         }
-        function callback(responseData) {
-            dataset = JSON.parse(responseData);
-            recalcular();
+        function existenDatos() {
+            ultimaActualizacion = local.fecha;
+            if (ultimaActualizacion == null) return false;
+            var hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            ultimaActualizacion.setHours(0, 0, 0, 0)
+            return hoy.getTime() == ultimaActualizacion.getTime() && local.data.length > 0
         }
 
-        function recalcular() {
+        function callbackRecalcular() {
+            local.fecha = new Date();
+            localStorage.setItem("meta", JSON.stringify(local));
+
             var soloNuevos = !!+document.querySelector('input[name="casos"]:checked').value;
 
             var columnas = {
@@ -122,7 +201,7 @@
             chart.clearChart();
 
             var prevItem = {};
-            dataset.forEach(item => {
+            local.data.forEach(item => {
                 var casos = {
                     nuevos: item.Confirmed,
                     fallecidos: item.Deaths,
@@ -140,6 +219,8 @@
                     }
                     prevItem = item
                 }
+                if (casos.fecha.getFullYear() == 2021 && casos.fecha.getMonth() == 2 && casos.fecha.getDate() == 7)
+                    casos.activos = 7147;
 
                 if (!!desde && !!hasta && (casos.fecha < desde || casos.fecha > hasta)) return
 
@@ -157,6 +238,7 @@
             };
 
             chart.draw(data, google.charts.Line.convertOptions(options));
+            document.getElementById("lds-ring").style.display = "none";
         }
 
         google.charts.load('current', { 'packages': ['line'], 'language': 'es' });
